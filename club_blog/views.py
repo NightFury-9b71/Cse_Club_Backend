@@ -4,46 +4,77 @@ from rest_framework import status
 from .models import Post, Comment, Like
 from .serializers import PostSerializer, CommentSerializer, LikeSerializer
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 
 @api_view(['GET'])
-@permission_classes([AllowAny])  # Only allow authenticated users
+@permission_classes([AllowAny])  # Allow any user to view posts
+def list_posts(request):
+    posts = Post.objects.all()
+    serializer = PostSerializer(posts, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
 def get_post_details(request, post_id):
     try:
         post = Post.objects.get(id=post_id)
     except Post.DoesNotExist:
         return Response({"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND)
     
-    # Retrieve comments for the post
-    comments = Comment.objects.filter(post=post, parent_comment__isnull=True)  # Top-level comments
+    # Retrieve comments with related data
+    comments = Comment.objects.filter(post=post, parent_comment__isnull=True).prefetch_related(
+        'author', 'likes', 'replies__author', 'replies__likes'
+    )
+    
     comment_data = CommentSerializer(comments, many=True).data
     
-    # Add replies to each comment and like counts
+    # Add likes and replies to comments
     for comment in comment_data:
         # Get likes for the comment
         comment_likes = Like.objects.filter(comment_id=comment['id'])
         comment['like_count'] = comment_likes.count()  # Add like count for the comment
         
-        replies = Comment.objects.filter(parent_comment_id=comment['id'])
-        # Add replies and their like counts
-        for reply in replies:
-            reply_likes = Like.objects.filter(comment_id=reply.id)
-            comment_replies = CommentSerializer([reply], many=True).data
-            comment_replies[0]['like_count'] = reply_likes.count()
-            if 'replies' not in comment:
-                comment['replies'] = []
-            comment['replies'].append(comment_replies[0])
-
+        # Add author info for the comment (access author attributes directly)
+        comment_author = comment['author']
+        comment['author_name'] = comment_author['name'] if isinstance(comment_author, dict) else comment_author.name
+        comment['author_role'] = comment_author['role'] if isinstance(comment_author, dict) else comment_author.role
+        comment['author_avatar_url'] = comment_author['avatar'].url if hasattr(comment_author, 'avatar') else None
+        
+        # Get replies for the comment and process them
+        comment['replies'] = []
+        for reply in comment.get('replies', []):
+            reply_likes = Like.objects.filter(comment_id=reply['id'])
+            reply['like_count'] = reply_likes.count()  # Add like count for the reply
+            
+            # Add author info for the reply (access author attributes directly)
+            reply_author = reply['author']
+            reply['author_name'] = reply_author['name'] if isinstance(reply_author, dict) else reply_author.name
+            reply['author_role'] = reply_author['role'] if isinstance(reply_author, dict) else reply_author.role
+            reply['author_avatar_url'] = reply_author['avatar'].url if hasattr(reply_author, 'avatar') else None
+            
+            comment['replies'].append(reply)
+    
     # Get likes for the post
     post_likes = Like.objects.filter(post=post)
     post_like_count = post_likes.count()
-
+    
     # Prepare the response data for the post
     post_data = PostSerializer(post).data
     post_data['comments'] = comment_data
-    post_data['post_likes'] = post_like_count  # Add post like count
-
+    post_data['like_count'] = post_like_count
+    
+    # Add author info for the post
+    post_author = post.author
+    post_data['author_name'] = post_author.name
+    post_data['author_role'] = post_author.role
+    post_data['author_avatar_url'] = post_author.avatar.url if hasattr(post_author, 'avatar') else None
+    
     return Response(post_data, status=status.HTTP_200_OK)
+
 
 # Create a post
 @api_view(['POST'])

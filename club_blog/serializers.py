@@ -1,12 +1,13 @@
 from rest_framework import serializers
 from .models import Post, Comment, Like
 from django.contrib.auth import get_user_model
+from club_auth.serializers import UserSerializer
 
 User = get_user_model()
 
 # Post serializer to create and retrieve posts
 class PostSerializer(serializers.ModelSerializer):
-    author = serializers.StringRelatedField(read_only=True)
+    author = UserSerializer(read_only=True)  # Use UserSerializer to get full user data
 
     class Meta:
         model = Post
@@ -15,8 +16,8 @@ class PostSerializer(serializers.ModelSerializer):
 
 # Comment serializer to create and retrieve comments
 class CommentSerializer(serializers.ModelSerializer):
-    author = serializers.StringRelatedField(read_only=True)
-    post = serializers.PrimaryKeyRelatedField(read_only=True)  # Make post read-only
+    author = UserSerializer(read_only=True)  # Use UserSerializer to get full user data
+    post = serializers.PrimaryKeyRelatedField(read_only=True)
     parent_comment = serializers.PrimaryKeyRelatedField(queryset=Comment.objects.all(), required=False, allow_null=True)
 
     class Meta:

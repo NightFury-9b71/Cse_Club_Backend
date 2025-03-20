@@ -2,14 +2,15 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path('posts/', views.list_posts, name='list_posts'),
     path('post/<int:post_id>/details/', views.get_post_details, name='post_details'),
     path('post/', views.create_post, name='create_post'),
-    path('blog/post/<int:post_id>/update/', views.update_post, name='update-post'), 
-    path('blog/post/<int:post_id>/delete/', views.delete_post, name='delete-post'),
+    path('post/<int:post_id>/update/', views.update_post, name='update-post'), 
+    path('post/<int:post_id>/delete/', views.delete_post, name='delete-post'),
 
     path('post/<int:post_id>/comment/', views.create_comment, name='create_comment'),
-    path('blog/comment/<int:comment_id>/update/', views.update_comment, name='update-comment'),
-    path('blog/comment/<int:comment_id>/delete/', views.delete_comment, name='delete-comment'),
+    path('comment/<int:comment_id>/update/', views.update_comment, name='update-comment'),
+    path('comment/<int:comment_id>/delete/', views.delete_comment, name='delete-comment'),
     
     path('comment/<int:comment_id>/reply/', views.reply_to_comment, name='reply_to_comment'),
     
